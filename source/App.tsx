@@ -1,5 +1,5 @@
 import "source-map-support/register";
-import dotenv from 'dotenv'
+import "dotenv/config"
 import React, { useEffect, useState } from "react";
 import { Text } from "ink";
 import express from "express";
@@ -7,7 +7,6 @@ import net from "net";
 import { Node, registerNode, getNodes } from "./Node";
 import { hashObject } from "./hashObject";
 
-dotenv.config()
 const { PORT } = process.env
 
 const app = express();
