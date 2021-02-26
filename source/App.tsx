@@ -1,10 +1,14 @@
 import "source-map-support/register";
+import dotenv from 'dotenv'
 import React, { useEffect, useState } from "react";
 import { Text } from "ink";
 import express from "express";
 import net from "net";
 import { Node, registerNode, getNodes } from "./Node";
 import { hashObject } from "./hashObject";
+
+dotenv.config()
+const { PORT } = process.env
 
 const app = express();
 app.use(express.json());
@@ -100,7 +104,7 @@ const App = ({ upstreamAddress, upstreamPort }: AppProps) => {
 
 export default App;
 
-const server = app.listen(0, "localhost", () => {
+const server = app.listen(PORT && parseInt(PORT, 10) || 0, "localhost", () => {
   const { address, port } = server.address() as net.AddressInfo;
 
   console.log(`listening on http://${address}:${port}/`);
