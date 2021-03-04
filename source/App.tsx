@@ -1,13 +1,13 @@
 import "source-map-support/register";
-import "dotenv/config"
+import "dotenv/config";
 import React, { useEffect, useState } from "react";
-import { Text } from "ink";
+import { Text, Box } from "ink";
 import express from "express";
 import net from "net";
 import { Node, registerNode, getNodes } from "./Node";
 import { hashObject } from "./hashObject";
 
-const { PORT } = process.env
+const { PORT } = process.env;
 
 const app = express();
 app.use(express.json());
@@ -15,6 +15,7 @@ app.use(express.json());
 let nodes: { [x: string]: Node } = {};
 let nodesListOfHashes: string[] = [];
 let HashOfAllNodes: string = hashObject(nodesListOfHashes);
+let HashOfMySelf: string;
 const addNode = (newNode: Node) => {
   const key = hashObject(newNode);
   const newNodes = { [key]: newNode };
@@ -50,19 +51,27 @@ app.get("/getNodes", (req, res) => {
 setInterval(async () => {
   await Promise.all(
     nodesListOfHashes.map(async (nodeHash) => {
+      if (nodeHash === HashOfMySelf) {
+        return;
+      }
       const peerNode: Node | undefined = nodes[nodeHash];
-      if (peerNode !== undefined) {
+      if (peerNode === undefined) {
+        return;
+      }
+      console.log(`getting nodes of`, peerNode);
+      try {
         const { success, data: listOfNodes } = await getNodes(
           peerNode,
           HashOfAllNodes
         );
         if (success && listOfNodes) {
+          console.log(`got nodes of`, peerNode);
           updateNodes(listOfNodes);
         } else {
-          // if (nodes[nodeHash] !== undefined) {
-          //   nodes[nodeHash].online = false;
-          // }
+          console.log(`didnt get nodes of`, peerNode);
         }
+      } catch (error) {
+        // nodes[nodeHash].online = false;
       }
     })
   );
@@ -96,25 +105,46 @@ const App = ({ upstreamAddress, upstreamPort }: AppProps) => {
   return (
     <>
       <Text>{timestamp}</Text>
-      <Text color="green">{JSON.stringify(nodes, null, 2)}</Text>
+      <Text>my hash {HashOfMySelf}</Text>
+      {nodesListOfHashes.map((nodeHash) => {
+        const node = nodes[nodeHash];
+        if (!node) {
+          return <></>;
+        }
+        return (
+          <Box key={nodeHash} padding={1} flexDirection="column">
+            <Text>Hash: {nodeHash}</Text>
+            <Text>Address: {node.address}</Text>
+            <Text>Port: {node.port}</Text>
+            <Text color={node.online ? "green" : "red"}>
+              Online: {node.online ? "True" : "False"}
+            </Text>
+          </Box>
+        );
+      })}
     </>
   );
 };
 
 export default App;
 
-const server = app.listen(PORT && parseInt(PORT, 10) || 0, "localhost", () => {
-  const { address, port } = server.address() as net.AddressInfo;
+const server = app.listen(
+  (PORT && parseInt(PORT, 10)) || 0,
+  "localhost",
+  () => {
+    const { address, port } = server.address() as net.AddressInfo;
+    const thisNode: Node = { address, port, online: true };
+    HashOfMySelf = hashObject(thisNode);
 
-  console.log(`listening on http://${address}:${port}/`);
+    console.log(`listening on http://${address}:${port}/`);
 
-  if (nodesListOfHashes.length !== 0) {
-    nodesListOfHashes.forEach((nodeHash) => {
-      const thisNode: Node = { address, port, online: true };
-      const peerNode: Node | undefined = nodes[nodeHash];
-      if (peerNode !== undefined) {
-        registerNode({ thisNode, peerNode });
-      }
-    });
+    if (nodesListOfHashes.length !== 0) {
+      nodesListOfHashes.forEach((nodeHash) => {
+        const peerNode: Node | undefined = nodes[nodeHash];
+        if (peerNode !== undefined) {
+          registerNode({ thisNode, peerNode });
+        }
+      });
+    }
   }
-});
+);
